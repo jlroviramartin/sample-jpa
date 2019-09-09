@@ -52,7 +52,7 @@ public class PersistenceService implements AutoCloseable {
     /**
      * Destroys the entity manager factory.
      * 
-     * @param desregisterDriver
+     * @param desregisterDrivers
      *            Whether deregister the drivers.
      */
     public static void destroy(boolean desregisterDrivers) {

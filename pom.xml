@@ -19,6 +19,12 @@
 		<relativePath>parent/pom.xml</relativePath>
 	</parent>
 
+	<scm>
+		<connection>scm:git:https://github.com/jlroviramartin/sample-jpa.git</connection>
+		<developerConnection>scm:git:https://jlroviramartin@github.com/jlroviramartin/sample-jpa.git</developerConnection>
+		<url>https://github.com/jlroviramartin/sample-jpa</url>
+	</scm>
+
 	<properties>
 	</properties>
 
@@ -270,8 +276,78 @@
 				<artifactId>maven-project-info-reports-plugin</artifactId>
 			</plugin>
 
-
 		</plugins>
 	</build>
+
+	<reporting>
+		<plugins>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-checkstyle-plugin</artifactId>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>checkstyle</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-project-info-reports-plugin</artifactId>
+				<configuration>
+					<webAccessUrl>https://github.com/jlroviramartin/sample-jpa</webAccessUrl>
+					<anonymousConnection>scm:git:https://github.com/jlroviramartin/sample-jpa.git</anonymousConnection>
+					<developerConnection>scm:git:https://jlroviramartin@github.com/jlroviramartin/sample-jpa.git</developerConnection>
+				</configuration>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>index</report>
+							<report>summary</report>
+
+							<report>ci-management</report>
+
+							<report>dependency-management</report>
+
+							<report>plugins</report>
+							<report>plugin-management</report>
+
+							<report>issue-management</report>
+
+							<report>licenses</report>
+
+							<report>mailing-lists</report>
+							<report>scm</report>
+							<report>team</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+
+			<plugin>
+				<groupId>org.apache.maven.plugins</groupId>
+				<artifactId>maven-javadoc-plugin</artifactId>
+				<reportSets>
+					<reportSet>
+						<reports>
+							<report>javadoc</report>
+							<report>test-javadoc</report>
+						</reports>
+					</reportSet>
+					<reportSet>
+						<id>aggregate</id>
+						<inherited>false</inherited>
+						<reports>
+							<report>aggregate</report>
+						</reports>
+					</reportSet>
+				</reportSets>
+			</plugin>
+
+		</plugins>
+	</reporting>
 
 </project>

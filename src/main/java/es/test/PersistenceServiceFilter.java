@@ -24,6 +24,7 @@ public class PersistenceServiceFilter implements Filter {
      * Init method for this filter
      *
      * @param filterConfig
+     *            Configuration.
      */
     @Override
     public void init(FilterConfig filterConfig) throws ServletException {
