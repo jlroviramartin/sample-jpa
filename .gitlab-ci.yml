@@ -1,0 +1,42 @@
+# Example: https://docs.gitlab.com/ee/ci/examples/artifactory_and_gitlab/
+#          https://docs.gitlab.com/ee/ci/yaml/README.html
+
+# Specify a Docker image to use for the job
+# https://hub.docker.com/_/maven/
+image: maven:latest
+
+# Allows to group jobs into different stages, and jobs of the same stage are executed in parallel.
+stages:
+  - build
+  - test
+  - integrationtest
+  - deploy
+
+variables:
+  # https://maven.apache.org/configure.html
+  MAVEN_OPTS: "-Dmaven.repo.local=.m2/repository"
+  MAVEN_CLI_OPTS: "-s .m2/settings.xml --batch-mode"
+
+# Global list of files and directories which should be cached between jobs
+cache:
+  paths:
+    - .m2/repository/
+    - target/
+
+# Job 1: maven compile
+build:
+  stage: build
+  script:
+    - mvn $MAVEN_CLI_OPTS clean compile
+
+# Job 2: maven test
+test:
+  stage: test
+  script:
+    - mvn $MAVEN_CLI_OPTS test
+
+# Job 3: maven integration test
+integrationtest:
+  stage: integrationtest
+  script:
+    - mvn $MAVEN_CLI_OPTS verify
