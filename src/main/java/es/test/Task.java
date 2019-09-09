@@ -1,23 +1,31 @@
 package es.test;
 
+import java.io.Serializable;
 import java.sql.Date;
 
 import javax.persistence.Column;
 import javax.persistence.Entity;
 import javax.persistence.GeneratedValue;
+import javax.persistence.GenerationType;
 import javax.persistence.Id;
 import javax.persistence.Table;
 
 @Entity
 @Table(name = "TASKS")
-public class Task {
+public class Task implements Serializable {
+
+    private static final long serialVersionUID = -5702198920444295842L;
+
     @Id
-    @GeneratedValue
+    @GeneratedValue(strategy = GenerationType.AUTO)
     private int id;
+
     @Column(name = "NAME")
     private String name;
+
     @Column(name = "DESCRIPTION")
     private String description;
+
     @Column(name = "DATE")
     private Date date;
 

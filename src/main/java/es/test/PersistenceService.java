@@ -3,49 +3,72 @@ package es.test;
 import java.sql.Driver;
 import java.sql.DriverManager;
 import java.sql.SQLException;
+import java.text.MessageFormat;
 import java.util.Enumeration;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import javax.naming.InitialContext;
-import javax.naming.NamingException;
 import javax.persistence.EntityManager;
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.EntityTransaction;
 import javax.persistence.FlushModeType;
+import javax.persistence.Persistence;
 
+/**
+ * Persistence services. A PersistenceService is unique per thread.
+ */
 public class PersistenceService implements AutoCloseable {
 
+    public static final String NAME_OF_PU = "SAMPLE_JPA_PU";
+
     private static final Logger LOG = Logger.getLogger(PersistenceService.class.getName());
-    private static EntityManagerFactory emf;
+
+    private static EntityManagerFactory factory;
+
+    private static final ThreadLocal<PersistenceService> INSTANCE = new ThreadLocal<PersistenceService>() {
+        @Override
+        protected PersistenceService initialValue() {
+            return new PersistenceService();
+        }
+    };
+    private static final AtomicInteger nInstances = new AtomicInteger();
+
+    private EntityManager entityManager;
+    private EntityTransaction transaction;
 
     public static EntityManagerFactory getEMF() {
-        if (null == emf) {
+        if (null == factory) {
             throw new IllegalStateException("EntityManagerFactory is null");
         }
-        return emf;
+        return factory;
     }
 
-    public static void init(String nameOfPU) {
-        try {
-            emf = (EntityManagerFactory) new InitialContext().lookup("java:comp/env/persistence/" + nameOfPU);
-        } catch (NamingException ex) {
-            //init(nameOfPU, Collections.EMPTY_MAP);
+    public static void init(String nameOfPU) throws ClassNotFoundException {
+        factory = Persistence.createEntityManagerFactory(nameOfPU);
+        //emf = (EntityManagerFactory) new InitialContext().lookup("java:comp/env/persistence/" + nameOfPU);
+    }
+
+    /**
+     * Destroys the entity manager factory.
+     * 
+     * @param desregisterDriver
+     *            Whether deregister the drivers.
+     */
+    public static void destroy(boolean desregisterDrivers) {
+        if (null != factory) {
+            factory.close();
+        }
+
+        if (desregisterDrivers) {
+            desregisterDrivers();
         }
     }
 
-    public static void destroy(boolean desregisterDriver) {
-        if (null != emf) {
-            emf.close();
-        }
-
-        if (desregisterDriver) {
-            desregisterDriver();
-        }
-    }
-
-    private static void desregisterDriver() {
+    /**
+     * Deregisters the drivers.
+     */
+    private static void desregisterDrivers() {
         ClassLoader cl = Thread.currentThread().getContextClassLoader();
         Enumeration<Driver> drivers = DriverManager.getDrivers();
 
@@ -58,42 +81,34 @@ public class PersistenceService implements AutoCloseable {
                     DriverManager.deregisterDriver(driver);
 
                 } catch (SQLException ex) {
-                    LOG.log(Level.SEVERE, String.format("Error deregistering JDBC driver %s", driver), ex);
+                    LOG.log(Level.SEVERE, MessageFormat.format("Error while deregistering JDBC driver {0}", driver), ex);
                 }
-
             } else {
-                LOG.log(Level.INFO, "Not deregistering JDBC driver {0} as it does not belong to this webapp's ClassLoader", driver);
+                LOG.log(Level.INFO, "Not deregistered JDBC driver {0}: it does not belong to this webapp's ClassLoader", driver);
             }
         }
     }
 
-    private static final ThreadLocal<PersistenceService> INSTANCE = new ThreadLocal<PersistenceService>() {
-        @Override
-        protected PersistenceService initialValue() {
-            return new PersistenceService();
-        }
-    };
-
-    private EntityManager em;
-    private EntityTransaction utx;
-
-    private static final AtomicInteger nInstances = new AtomicInteger();
-
-    private PersistenceService() {
-        LOG.log(Level.FINE, "Creando PersistenceService {0}", nInstances.incrementAndGet());
-    }
-
     /**
-     * Returns an instance of PersistenceService.
+     * Returns the instance (unique per thread) of PersistenceService.
      *
-     * @return an instance of PersistenceService
+     * @return An instance of PersistenceService
      */
     public static PersistenceService getInstance() {
         return INSTANCE.get();
     }
 
+    /**
+     * Removes the instance (unique per thread) of PersistenceService.
+     *
+     * @return An instance of PersistenceService
+     */
     private static void removeInstance() {
         INSTANCE.remove();
+    }
+
+    private PersistenceService() {
+        LOG.log(Level.FINE, "Building PersistenceService {0}", nInstances.incrementAndGet());
     }
 
     /**
@@ -102,30 +117,31 @@ public class PersistenceService implements AutoCloseable {
      * @return an instance of EntityManager
      */
     public EntityManager getEntityManager() {
-        if (null == em) {
-            em = getEMF().createEntityManager();
-            em.setFlushMode(FlushModeType.COMMIT); // En el commit va a la base de datos.
+        if (null == entityManager) {
+            LOG.log(Level.FINE, "Caching EntityManager");
 
-            //Map<String, Object> properties = getEMF().getProperties();
-            //tryToSetProperty("javax.persistence.cache.storeMode", properties, em);
-            //tryToSetProperty("javax.persistence.cache.retrieveMode", properties, em);
-            //printProperties(em);
+            entityManager = getEMF().createEntityManager();
+            entityManager.setFlushMode(FlushModeType.COMMIT); // En el commit va a la base de datos.
         }
-
-        return em;
+        return entityManager;
     }
 
+    /**
+     * Returns the current transaction.
+     * 
+     * @return The current transaction.
+     */
     private EntityTransaction getTransaction() {
-        if (null == utx) {
-            utx = getEntityManager().getTransaction();
+        if (null == transaction) {
+            transaction = getEntityManager().getTransaction();
         }
-        return utx;
+        return transaction;
     }
 
     /**
      * Begins a resource transaction.
      */
-    public void beginTx() {
+    public void beginTransaction() {
         try {
             getTransaction().begin();
         } catch (Exception ex) {
@@ -136,7 +152,7 @@ public class PersistenceService implements AutoCloseable {
     /**
      * Commits a resource transaction.
      */
-    public void commitTx() {
+    public void commitTransaction() {
         try {
             getTransaction().commit();
         } catch (Exception ex) {
@@ -147,7 +163,7 @@ public class PersistenceService implements AutoCloseable {
     /**
      * Rolls back a resource transaction.
      */
-    public void rollbackTx() {
+    public void rollbackTransaction() {
         try {
             getTransaction().rollback();
         } catch (Exception ex) {
@@ -156,17 +172,54 @@ public class PersistenceService implements AutoCloseable {
     }
 
     /**
+     * Executes {@code runnable} inside a transaction.
+     * 
+     * @param runnable
+     *            A runnable code.
+     */
+    public void doInTransaction(Runnable runnable) {
+        beginTransaction();
+        try {
+            runnable.run();
+            commitTransaction();
+        } catch (Throwable e) {
+            rollbackTransaction();
+            throw e;
+        }
+    }
+
+    /**
+     * Executes {@code runnable} inside a transaction.
+     * 
+     * @param runnable
+     *            A runnable code.
+     */
+    @SuppressWarnings("unchecked")
+    public <TException extends Exception> void doInTransaction(Class<? extends TException> clazz, RunnableWithException<TException> runnable) throws TException {
+        beginTransaction();
+        try {
+            runnable.run();
+            commitTransaction();
+        } catch (Throwable e) {
+            rollbackTransaction();
+            if (clazz.isInstance(e)) {
+                throw (TException) e;
+            }
+            throw new Error(e);
+        }
+    }
+
+    /**
      * Closes this instance.
      */
     @Override
     public void close() {
-        LOG.log(Level.FINE, "Cerrando PersistenceService {0}", nInstances.decrementAndGet());
+        LOG.log(Level.FINE, "Closing PersistenceService {0}", nInstances.decrementAndGet());
 
-        if (em != null && em.isOpen()) {
-            em.close();
-            em = null;
+        if (entityManager != null && entityManager.isOpen()) {
+            entityManager.close();
+            entityManager = null;
         }
-
         removeInstance();
     }
 }

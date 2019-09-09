@@ -30,14 +30,12 @@ public class PersistenceServiceFilter implements Filter {
         LOG.log(Level.INFO, "Iniciando el filtro para el EntityManager del JPA");
 
         //String nameOfPU = filterConfig.getInitParameter("PERSISTENT_PU");
-        String nameOfPU = "JPA_PU";
-
-        if (null == nameOfPU) {
-            throw new ServletException("Filtro de persistencia no inicializado correctamente. El nombre del PU es nulo. Falta el parámetro PERSISTENT_PU al filtro");
-        }
+        //if (null == nameOfPU) {
+        //    throw new ServletException("Filtro de persistencia no inicializado correctamente. El nombre del PU es nulo. Falta el parámetro PERSISTENT_PU al filtro");
+        //}
 
         try {
-            PersistenceService.init(nameOfPU);
+            PersistenceService.init(PersistenceService.NAME_OF_PU);
         } catch (Throwable th) {
             LOG.log(Level.SEVERE, th.getMessage());
             throw new ServletException("Filtro de persistencia no inicializado correctamente.", th);
