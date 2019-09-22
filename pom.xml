@@ -54,6 +54,11 @@
 			<artifactId>querydsl-jpa</artifactId>
 		</dependency>
 
+		<dependency>
+			<groupId>org.quartz-scheduler</groupId>
+			<artifactId>quartz</artifactId>
+		</dependency>
+
 		<!-- Because this is a web app, we also have a dependency on the servlet 
 			api. -->
 		<dependency>

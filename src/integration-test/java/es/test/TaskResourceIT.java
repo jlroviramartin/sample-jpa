@@ -4,32 +4,23 @@ import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertNotNull;
 import static org.junit.Assert.assertNull;
 
-import java.io.IOException;
 import java.util.List;
+import java.util.concurrent.TimeUnit;
 
 import org.junit.Before;
 import org.junit.Test;
 
-import com.fasterxml.jackson.core.JsonParseException;
-import com.fasterxml.jackson.databind.JsonMappingException;
-import com.fasterxml.jackson.databind.ObjectMapper;
-
+import es.test.model.Task;
+import es.test.model.TaskStatus;
 import kong.unirest.GenericType;
-import kong.unirest.HttpRequest;
-import kong.unirest.JacksonObjectMapper;
-import kong.unirest.JsonNode;
+import kong.unirest.HttpResponse;
 import kong.unirest.Unirest;
 
-public class TaskResourceIT {
+public class TaskResourceIT extends AbsResourceIT<Task, Integer> {
 
-    private static final GenericType<List<Task>> listOfTasks = new GenericType<List<Task>>() {
-    };
-
-    private String baseUrl;
-    private ObjectMapper objectMapper = new ObjectMapper();
-
-    {
-        Unirest.config().setObjectMapper(new JacksonObjectMapper(objectMapper));
+    public TaskResourceIT() {
+        super(Task.class, Integer.class, new GenericType<List<Task>>() {
+        }, "");
     }
 
     @Before
@@ -43,12 +34,10 @@ public class TaskResourceIT {
         System.out.println("Base URL " + baseUrl);
     }
 
-    @Test
-    public void callIndexPage() throws Exception {
+   @Test
+    public void fullCrudTest() throws Exception {
         // getAll
-        List<Task> taks = Unirest.get(this.baseUrl)
-                .asObject(listOfTasks)
-                .getBody();
+        List<Task> taks = getAll().getBody();
         assertEquals(0, taks.size());
 
         Task task = new Task();
@@ -56,62 +45,65 @@ public class TaskResourceIT {
         task.setDescription("description");
 
         // create
-        int status = Unirest.post(this.baseUrl)
-                .header("accept", "application/json")
-                .header("Content-Type", "application/json")
-                .body(objectMapper.writeValueAsString(task))
-                .asJson()
-                .getStatus();
-        assertEquals(200, status);
+        HttpResponse<Task> response = create(task);
+        assertEquals(200, response.getStatus());
 
         // getAll
-        List<Task> taks2 = Unirest.get(this.baseUrl)
-                .asObject(listOfTasks)
-                .getBody();
+        List<Task> taks2 = getAll().getBody();
         assertEquals(1, taks2.size());
 
         int id = taks2.get(0).getId();
 
         // get
-        Task task2 = Unirest.get(this.baseUrl + "/{id}")
-                .routeParam("id", id + "")
-                .asObject(Task.class)
-                .getBody();
+        Task task2 = get(id).getBody();
         assertNotNull(task2);
+        assertEquals((Integer) id, task2.getId());
+        assertEquals("name", task2.getName());
+        assertEquals("description", task2.getDescription());
 
         Task task3 = new Task();
+        task3.setId(id);
         task3.setName("name2");
         task3.setDescription("description2");
 
         // update
-        int status2 = Unirest.put(this.baseUrl + "/{id}")
-                .routeParam("id", id + "")
-                .header("accept", "application/json")
-                .header("Content-Type", "application/json")
-                .body(objectMapper.writeValueAsString(task3))
-                .asJson()
-                .getStatus();
+        int status2 = update(task3).getStatus();
         assertEquals(200, status2);
 
         // delete
-        int status3 = Unirest.delete(this.baseUrl + "/{id}")
-                .routeParam("id", id + "")
-                .asJson()
-                .getStatus();
+        int status3 = delete(id).getStatus();
         assertEquals(200, status3);
 
         //getAll
-        List<Task> taks3 = Unirest.get(this.baseUrl)
-                .asObject(listOfTasks)
-                .getBody();
+        List<Task> taks3 = getAll().getBody();
         assertEquals(0, taks3.size());
     }
 
-    private <T> T readValue(Class<T> clazz, JsonNode json) throws JsonParseException, JsonMappingException, IOException {
-        return objectMapper.readValue(json.toString(), clazz);
+    //@Test
+    public void run() throws Exception {
+        Task task = new Task();
+        task.setName("name");
+        task.setDescription("description");
+        int id = create(task).getBody().getId();
+
+        start(id);
+
+        Task runningTask = get(id).getBody();
+        while (!runningTask.getStatus().equals(TaskStatus.completed)) {
+            System.out.println(runningTask.getStatus());
+            System.out.println(runningTask.getCompletionFactor());
+            Thread.sleep(TimeUnit.SECONDS.toMillis(2));
+
+            runningTask = get(id).getBody();
+            if (runningTask.getStatus().equals(TaskStatus.waiting)) {
+                System.out.println("-");
+            }
+        }
     }
 
-    private <T> T readValue(Class<T> clazz, HttpRequest<? extends HttpRequest<?>> req) throws JsonParseException, JsonMappingException, IOException {
-        return readValue(clazz, req.asJson().getBody());
+    protected HttpResponse<?> start(int id) {
+        return Unirest.get(this.baseUrl + "/start/{id}")
+                .routeParam("id", String.valueOf(id))
+                .asEmpty();
     }
 }

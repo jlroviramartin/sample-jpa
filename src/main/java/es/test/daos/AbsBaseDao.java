@@ -3,23 +3,22 @@ package es.test.daos;
 import java.text.MessageFormat;
 import java.util.List;
 
-import javax.inject.Inject;
 import javax.persistence.PersistenceException;
+import javax.validation.constraints.NotNull;
 
 import es.test.PersistenceService;
 
-public abstract class AbsBaseDao<TEntity> {
+public abstract class AbsBaseDao<TEntity extends IdentifiableEntity<TId>, TId> {
 
     private final PersistenceService persistenceService;
     private final Class<TEntity> clazz;
 
-    @Inject
-    public AbsBaseDao(PersistenceService persistenceService, Class<TEntity> clazz) {
+    public AbsBaseDao(@NotNull PersistenceService persistenceService, @NotNull Class<TEntity> clazz) {
         this.persistenceService = persistenceService;
         this.clazz = clazz;
     }
 
-    public void create(TEntity entity) throws DaoException {
+    public void create(@NotNull TEntity entity) throws DaoException {
         persistenceService.getEntityManager().persist(entity);
         try {
             persistenceService.getEntityManager().flush();
@@ -28,7 +27,7 @@ public abstract class AbsBaseDao<TEntity> {
         }
     }
 
-    public TEntity read(int id) throws DaoException {
+    public TEntity read(@NotNull TId id) throws DaoException {
         try {
             return persistenceService.getEntityManager().find(clazz, id);
         } catch (PersistenceException exception) {
@@ -50,7 +49,7 @@ public abstract class AbsBaseDao<TEntity> {
         }
     }
 
-    public void update(TEntity entity) throws DaoException {
+    public void update(@NotNull TEntity entity) throws DaoException {
         try {
             persistenceService.getEntityManager().merge(entity);
         } catch (Exception e) {
@@ -58,13 +57,34 @@ public abstract class AbsBaseDao<TEntity> {
         }
     }
 
-    public void delete(TEntity entity) throws DaoException {
+    public void delete(@NotNull TEntity entity) throws DaoException {
         try {
             if (!persistenceService.getEntityManager().contains(entity)) {
                 entity = persistenceService.getEntityManager().merge(entity);
             }
             persistenceService.getEntityManager().remove(entity);
         } catch (Exception e) {
+            throw new DaoException(e);
+        }
+    }
+
+    public void deleteById(@NotNull TId id) throws DaoException {
+        try {
+            TEntity entity = persistenceService.getEntityManager().find(clazz, id);
+            if (entity != null) {
+                persistenceService.getEntityManager().remove(entity);
+            }
+        } catch (Exception e) {
+            throw new DaoException(e);
+        }
+    }
+
+    protected TEntity newInstance() throws DaoException {
+        try {
+            return (TEntity) clazz.newInstance();
+        } catch (InstantiationException e) {
+            throw new DaoException(e);
+        } catch (IllegalAccessException e) {
             throw new DaoException(e);
         }
     }
